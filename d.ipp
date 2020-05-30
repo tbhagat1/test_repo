@@ -69,18 +69,16 @@ namespace util {
     operator const_iterator() const;
 
     ////////
-    /// operator!= (iterator)
+    /// operator!=
     ////////
     template <class U>
-    friend bool operator!=(const typename deque<U>::iterator& l,
-                           const typename deque<U>::iterator& r);
+    friend bool operator!=(const U& l, const U& r);
 
     ////////
-    /// operator== (iterator)
+    /// operator==
     ////////
     template <class U>
-    friend bool operator==(const typename deque<U>::iterator& l,
-                           const typename deque<U>::iterator& r);
+    friend bool operator==(const U& l, const U& r);
 
   private:
 
@@ -123,7 +121,7 @@ namespace util {
   operator++() {
 
     if (++pos_ == slab_->end()) {
-      slab_ = slab_->next_;
+      slab_ = slab_->link_;
       pos_ = slab_->begin();
     }
     return *this;
@@ -199,26 +197,6 @@ namespace util {
   }
 
   ////////
-  /// operator!=
-  ////////
-  template <class T>
-  inline bool
-  operator!=(const typename deque<T>::iterator& l,
-             const typename deque<T>::iterator& r) {
-    return l.slab_ != r.slab_ || l.pos_ != r.pos_;
-  }
-  
-  ////////
-  /// operator==
-  ////////
-  template <class T>
-  inline bool
-  operator==(const typename deque<T>::iterator& l,
-             const typename deque<T>::iterator& r) {
-    return l.slab_ == r.slab_ && l.pos_ == r.pos_;
-  }
-
-  ////////
   /// const_iterator
   ////////
   template <class T>
@@ -270,18 +248,16 @@ namespace util {
     const T* operator->() const;
 
     ////////
-    /// operator!= (const_iterator)
+    /// operator!=
     ////////
     template <class U>
-    friend bool operator!=(const typename deque<U>::const_iterator& l,
-                           const typename deque<U>::const_iterator& r);
+    friend bool operator!=(const U& l, const U& r);
 
     ////////
-    /// operator== (const_iterator)
+    /// operator==
     ////////
     template <class U>
-    friend bool operator==(const typename deque<U>::const_iterator& l,
-                           const typename deque<U>::const_iterator& r);
+    friend bool operator==(const U& l, const U& r);
 
   private:
 
@@ -324,7 +300,7 @@ namespace util {
   operator++() {
 
     if (++pos_ == slab_->end()) {
-      slab_ = slab_->next_;
+      slab_ = slab_->link_;
       pos_ = slab_->begin();
     }
     return *this;
@@ -371,8 +347,8 @@ namespace util {
   ////////
   template <class T>
   inline bool
-  operator!=(const typename deque<T>::const_iterator& l,
-             const typename deque<T>::const_iterator& r) {
+  operator!=(const T& l,
+             const T& r) {
     return l.slab_ != r.slab_ || l.pos_ != r.pos_;
   }
   
@@ -381,8 +357,8 @@ namespace util {
   ////////
   template <class T>
   inline bool
-  operator==(const typename deque<T>::const_iterator& l,
-             const typename deque<T>::const_iterator& r) {
+  operator==(const T& l,
+             const T& r) {
     return l.slab_ == r.slab_ && l.pos_ == r.pos_;
   }
 

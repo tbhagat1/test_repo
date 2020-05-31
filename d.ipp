@@ -371,7 +371,7 @@ namespace util {
   deque(const size_t size) :
     first_(nullptr),
     last_ (nullptr),
-    size_ (0      ) {
+    size_ (0) {
 
     if (!size) return;
 
@@ -573,7 +573,7 @@ namespace util {
       ////////
       slab* p = new slab(slab_size_);
       p->push_back(t);
-      last_->next = p;
+      last_->link_ = p;
       last_ = p;
     }
     ++size_;
@@ -602,8 +602,65 @@ namespace util {
       ////////
       slab* p = new slab(slab_size_);
       p->emplace_back(std::forward<U>(args)...);
-      last_->next = p;
+      last_->link_ = p;
       last_ = p;
+    }
+    ++size_;
+  }
+
+  ////////
+  /// push_front
+  ////////
+  template <class T>
+  inline void
+  deque<T>::
+  push_front(const T& t) {
+  
+    if (!first_->full()) {
+
+      ////////
+      /// prepend to first slab
+      ////////
+      first_->insert(first_->begin(), t);
+    }
+    else {
+
+      ////////
+      /// prelink another slab
+      ////////
+      slab* p = new slab(slab_size_);
+      p->insert(p->begin(), t);
+      first_->link_ = p;
+      first_ = p;
+    }
+    ++size_;
+  }
+
+  ////////
+  /// emplace_front
+  ////////
+  template <class T>
+  template <class... U>
+  inline void
+  deque<T>::
+  emplace_front(U&&... args) {
+  
+    if (!first_->full()) {
+
+      ////////
+      /// prepend to first slab
+      ////////
+      first_->emplace(first_->begin(), std::forward<U>(args)...);
+    }
+    else {
+
+      ////////
+      /// prelink another slab
+      ////////
+      slab* p = new slab(slab_size_);
+      p->emplace(p->begin(), std::forward<U>(args)...);
+      first_->link_ = p;
+      first_ = p;
     }
     ++size_;
   }
@@ -615,7 +672,8 @@ namespace util {
   inline typename deque<T>::iterator
   deque<T>::
   begin() {
-    return iterator(first_, first_ ? first_->begin() : slab_iterator());
+    return iterator(first_, first_ ? first_->begin()
+                                   : slab_iterator());
   }
 
   ////////
@@ -625,7 +683,8 @@ namespace util {
   inline typename deque<T>::iterator
   deque<T>::
   end() {
-    return iterator(last_, last_ ? last_->end() : slab_iterator());
+    return iterator(last_, last_ ? last_->end()
+                                 : slab_iterator());
   }
 
   ////////
@@ -671,7 +730,7 @@ namespace util {
   deque<T>::
   slab::
   push_back(const T& t) {
-    slab_->push_back(t);
+    slab_.push_back(t);
   }
 
   ////////
@@ -683,7 +742,32 @@ namespace util {
   deque<T>::
   slab::
   emplace_back(U&&... args) {
-    slab_->emplace_back(std::forward<U>(args)...);
+    slab_.emplace_back(std::forward<U>(args)...);
+  }
+
+  ////////
+  /// insert
+  ////////
+  template <class T>
+  inline void
+  deque<T>::
+  slab::
+  insert(slab_iterator pos,
+         const T& t) {
+    slab_.insert(pos, t);
+  }
+
+  ////////
+  /// emplace
+  ////////
+  template <class T>
+  template <class... U>
+  inline void
+  deque<T>::
+  slab::
+  emplace(slab_iterator pos,
+          U&&... args) {
+    slab_.emplace(pos, std::forward<U>(args)...);
   }
 
   ////////

@@ -85,6 +85,23 @@ namespace util {
     template <class... U>
     void emplace_back(U&&... args);
 
+    ///////
+    /// push_front semantics ->
+    /// - checks if last slab is full
+    /// - if full, creates a new slab and links to the front
+    /// - inserts element at front of slab
+    ////////
+    void push_front(const T& t);
+
+    ///////
+    /// emplace_front semantics ->
+    /// - checks if last slab is full
+    /// - if full, creates a new slab and links to the front
+    /// - emplace inserts element at front of slab
+    ////////
+    template <class... U>
+    void emplace_front(U&&... args);
+
     ////////
     /// fwd decl for iterators
     ////////
@@ -166,6 +183,19 @@ namespace util {
       ////////
       template <class... U>
       void emplace_back(U&&... args);
+
+      ///////
+      /// insert semantics ->
+      /// - inserts t into pos
+      ////////
+      void insert(slab_iterator pos, const T& t);
+
+      ///////
+      /// emplace semantics ->
+      /// - emplace inserts into pos
+      ////////
+      template <class... U>
+      void emplace(slab_iterator pos, U&&... args);
 
       ////////
       /// full semantics ->

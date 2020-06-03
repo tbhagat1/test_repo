@@ -1,8 +1,10 @@
 #ifndef __MY_UNORDERED_MAP_HPP__
 #define __MY_UNORDERED_MAP_HPP__
 
-#include <vector>
 #include <map>
+#include <vector>
+#include <memory>
+#include <algorithm>
 
 namespace util {
 
@@ -34,7 +36,7 @@ public:
   ////////
   /// inserts return this
   ////////
-  typedef std::pair<iterator, bool> insert_effect;
+  typedef std::pair<iterator, bool> insert_result;
 
   ////////
   /// constructor semantics ->
@@ -46,7 +48,7 @@ public:
   ////////
   /// copy constructor semantics ->
   /// - allocates as many buckets as specified by m
-  /// - each bucket is initially empty
+  /// - copies each bucket from m into self
   ////////
   unordered_map(const unordered_map& m);
 
@@ -81,6 +83,22 @@ public:
   ~unordered_map();
 
   ////////
+  /// find semantics ->
+  /// - hashes key using hasher to find slot
+  /// - find's key within bucket map
+  /// - returns iterator to result
+  ////////
+  iterator find(const key& k);
+
+  ////////
+  /// const find semantics ->
+  /// - hashes key using hasher to find slot
+  /// - find's key within bucket map
+  /// - returns const_iterator to result
+  ////////
+  const_iterator find(const key& k) const;
+  
+  ////////
   /// clear semantics ->
   /// - clears all buckets
   ////////
@@ -92,11 +110,11 @@ public:
   /// - inserts entry into slot's map
   /// - increments size on insert success
   ////////
-  insert_effect insert(const value_type& v);
+  insert_result insert(const value_type& v);
 
   ////////
   /// operator[] semantics ->
-  /// - hashes v.key using hasher to find slot
+  /// - hashes key using hasher to find slot
   /// - uses slot's map's operator[] to create
   ///   default entry and return ref to it
   ////////
@@ -113,13 +131,13 @@ public:
   /// size semantics ->
   /// - number of total [k,v] items in container
   ////////
-  void size();
+  size_t size() const;
 
   ////////
   /// empty semantics ->
   /// - true if size is zero
   ////////
-  void empty();
+  bool empty() const;
 
   ////////
   /// begin
@@ -134,12 +152,12 @@ public:
   ////////
   /// const begin
   ////////
-  const_iterator cbegin();
+  const_iterator cbegin() const;
 
   ////////
   /// const end
   ////////
-  const_iterator cend();
+  const_iterator cend() const;
 
 private:
 
@@ -148,9 +166,16 @@ private:
   /// chain instead of the typical list -
   /// faster lookups/insertions?
   ////////
-  typedef std::map<key, value>    bucket;
-  typedef std::unique_ptr<bucket> bucket_ptr;
-  typedef std::vector<bucket_ptr> buckets;
+  typedef std::map<key, value>             bucket;
+  typedef std::unique_ptr<bucket>          bucket_ptr;
+  typedef std::vector<bucket>              buckets;
+  typedef typename bucket::iterator        bucket_iterator;
+  typedef typename bucket::const_iterator  bucket_const_iterator;
+  typedef std::pair<bucket_iterator, bool> insert_effect;
+
+  friend class iterator;
+  friend class const_iterator;
+  friend class base_iterator;
 
   buckets  buckets_;
   hasher   hasher_;
@@ -158,5 +183,7 @@ private:
 };
 
 }
+
+#include <hh.ipp>
 
 #endif

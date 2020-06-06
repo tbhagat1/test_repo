@@ -427,6 +427,7 @@ operator=(unordered_map&& m) {
   size_ = m.size_;
   buckets_ = std::move(m.buckets_);
   m.size_ = 0;
+  return *this;
 }
 
 ////////

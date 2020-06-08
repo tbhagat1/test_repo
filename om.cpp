@@ -2,6 +2,7 @@
 #include <om.hpp>
 #include <iomanip>
 #include <limits>
+#include <boost/algorithm/string/trim.hpp>
 
 namespace trade {
 
@@ -94,7 +95,7 @@ order() :
 /// tokenizer types
 ////////
 typedef boost::tokenizer<boost::char_separator<char>> tokenizer_t;
-static boost::char_separator<char> the_sep(", ");
+static boost::char_separator<char> the_sep(",");
 
 ////////
 /// parse int
@@ -106,12 +107,13 @@ parse_int(support::error_code& err,
           const std::string& field,
           const std::string& line) {
 
-  if (p->empty()) {
+  const std::string q = boost::trim_copy(*p);
+  if (q.empty()) {
     std::string s = "Empty " + field + " for line <" + line + ">";
     err.append(-1, s);
     return false;
   }
-  result = ::atoi((*p).c_str());
+  result = ::atoi(q.c_str());
   if (result < 0) {
     std::string s = "Negative " + field + " for line <" + line + ">";
     err.append(-1, s);
@@ -130,8 +132,8 @@ init(support::error_code& err,
      const std::string& line) {
 
   tokenizer_t tok(line, the_sep);
-  tokenizer_t::const_iterator p = tok.begin();
-  tokenizer_t::const_iterator q = tok.end();
+  tokenizer_t::iterator p = tok.begin();
+  tokenizer_t::iterator q = tok.end();
   const size_t size = std::distance(p, q);
 
   ////////
@@ -145,7 +147,7 @@ init(support::error_code& err,
   ////////
   /// validate action type
   ////////
-  const std::string& t = *p;
+  const std::string t = boost::trim_copy(*p);
   if (t != "N" && t != "R" && t != "M" && t != "X") {
     std::string s = "Cannot parse, invalid action <" + line + ">";
     err.append(-1, s);
@@ -210,12 +212,13 @@ init(support::error_code& err,
     ////////
     /// followed by side (buy or sell)
     ////////
-    if (p->empty() || (*p != "B" && *p != "S")) {
+    const std::string q = boost::trim_copy(*p);
+    if (q.empty() || (q != "B" && q != "S")) {
       std::string s = "Invalid buy/sell inidicator for line <" + line + ">";
       err.append(-1, s);
       return false;
     }
-    side = *p == "B" ? side_t::buy : side_t::sell;
+    side = q == "B" ? side_t::buy : side_t::sell;
     ++p;
 
     ////////
@@ -421,6 +424,9 @@ handle_trade(support::error_code& err,
     rollback(bp, buy_rollback);
     return;
   }
+  ////////
+  /// not sure why we need this tracing
+  ////////
   trace_trade_counts(op);
 }
 

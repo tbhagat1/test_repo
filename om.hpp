@@ -188,6 +188,6 @@ private:
   trade_counts  trade_counts_;
 };
 
-};
+}
 
 #endif

@@ -375,7 +375,6 @@ handle_trade(support::error_code& err,
     (*p)->quantity -= reduce_by;
     qty -= reduce_by;
   }
-
   ////////
   /// trade indicated quantity should have hit zero for buy
   ////////
@@ -409,7 +408,6 @@ handle_trade(support::error_code& err,
     (*p)->quantity -= reduce_by;
     qty -= reduce_by;
   }
-
   ////////
   /// trade indicated quantity should have hit zero for sell
   ////////
@@ -423,6 +421,15 @@ handle_trade(support::error_code& err,
     rollback(bp, buy_rollback);
     return;
   }
+  trace_trade_counts(op);
+}
+
+////////
+/// trace trade counts
+////////
+void
+order_tracker::
+trace_trade_counts(order::ptr op) {
 
   ////////
   /// find by product id in trade counts map

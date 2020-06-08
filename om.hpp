@@ -149,8 +149,16 @@ private:
   ////////
   void handle_trade(support::error_code& err, order::ptr order);
 
+  ////////
+  /// rollback
+  ////////
   void rollback(composite_ndx::iterator p,
                 const std::vector<int>& rollback);
+
+  ////////
+  /// trace trade counts
+  ////////
+  void trace_trade_counts(order::ptr op);
 
   ////////
   /// for tracing order

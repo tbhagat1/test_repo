@@ -1,6 +1,7 @@
 #include <fstream>
 #include <om.hpp>
 #include <iomanip>
+#include <limits>
 
 namespace trade {
 
@@ -40,7 +41,6 @@ exec(support::error_code& err) {
     ////////
     order::ptr  op = std::make_shared<order>();
     if ( !op->init(err, line)) {
-      continue;
     }
     ////////
     /// handle new order
@@ -67,17 +67,10 @@ exec(support::error_code& err) {
       handle_trade(err, op);
     }
     ////////
-    /// invalid - append to error code
+    /// trace every 10 messages - invalid or not ?
     ////////
-    else {
-      std::string s = "Invalid action type for line <" + line + ">";
-      err.append(-1, s);
-    }
     if (++message_count_ % 10 == 0) {
-      std::cout << orders_;
-      // std::cout << std::setw(79);
-      // std::cout << std::setfill('-');
-      // std::cout << '-' << std::endl;
+      std::cout << orders_ << std::endl;
     }
   }
   return err;
@@ -89,12 +82,12 @@ exec(support::error_code& err) {
 order_tracker::
 order::
 order() :
-  action(action_t::unknown),
-  prod(-1),
-  id(-1),
-  side(side_t::unknown),
+  action  (action_t::unknown),
+  prod    (-1),
+  id      (-1),
+  side    (side_t::unknown),
   quantity(-1),
-  price(-1)
+  price   (-1)
 {}
 
 ////////
@@ -282,6 +275,7 @@ handle_cancel(support::error_code& err,
   ////////
   order_id_ndx& ndx = orders_.get<order_id_tag>();
   order_id_ndx::iterator i = ndx.find(op->id);
+
   if (i == ndx.end()) {
     std::string s = "Failed to cancel order - not found; ";
     s += "order id <" + std::to_string(op->id) + ">";
@@ -335,6 +329,23 @@ handle_modify(support::error_code& err,
 }
 
 ////////
+/// rollback
+////////
+void
+order_tracker::
+rollback(composite_ndx::iterator p,
+         const std::vector<int>& rollback) {
+  for (size_t i = 0; i < rollback.size(); ++i, ++p) {
+    (*p)->quantity = rollback[i];
+  }
+}
+
+////////
+/// for upper bounds
+////////
+static int price_limit = std::numeric_limits<int>::max();
+
+////////
 /// handle trade
 ////////
 void
@@ -343,38 +354,74 @@ handle_trade(support::error_code& err,
              order::ptr op) {
 
   ////////
-  /// for the buy side locate the equal range
+  /// for the buy side locate the range; buyer must be willing to
+  /// pay at least the trade price
   ////////
+  composite_ndx::iterator p, q;
   composite_ndx& cn = orders_.get<composite_tag>();
-  composite_ndx::iterator p =
-    cn.lower_bound(boost::make_tuple(op->prod, side_t::buy, op->price));
-  composite_ndx::iterator q = cn.end();
-    // cn.upper_bound(boost::make_tuple(op->prod, side_t::buy, op->price));
+  p = cn.lower_bound(boost::make_tuple(op->prod, side_t::buy, op->price));
+  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::buy, price_limit));
+  composite_ndx::iterator bp = p;
   int qty = op->quantity;
+  std::vector<int> buy_rollback;
 
   ////////
   /// iterate over the range while quantity remains
   ////////
   for (; p != q && qty > 0; ++p) {
+
+    buy_rollback.push_back((*p)->quantity);
     int reduce_by = std::min(qty, (*p)->quantity);
     (*p)->quantity -= reduce_by;
     qty -= reduce_by;
   }
 
   ////////
-  /// same for sell side; locate the equal range
+  /// trade indicated quantity should have hit zero for buy
+  ////////
+  if (qty != 0) {
+
+    std::string s = "Invalid trade (X) transaction; quantiy not zero ";
+    s += "for buy side. Product " + std::to_string(op->prod) + " ";
+    s += "price " + std::to_string(op->price) + " quantity ";
+    s += std::to_string(op->quantity);
+    err.append(-1, s);
+    rollback(bp, buy_rollback);
+    return;
+  }
+
+  ////////
+  /// same for sell side; locate lower and upper bounds
   ////////
   p = cn.lower_bound(boost::make_tuple(op->prod, side_t::sell, op->price));
-  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::sell, op->price));
+  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::sell, price_limit));
+  composite_ndx::iterator sp = p;
   qty = op->quantity;
+  std::vector<int> sell_rollback;
 
   ////////
   /// iterate over the range while quantity remains
   ////////
   for (; p != q && qty > 0; ++p) {
+
+    sell_rollback.push_back((*p)->quantity);
     int reduce_by = std::min(qty, (*p)->quantity);
     (*p)->quantity -= reduce_by;
     qty -= reduce_by;
+  }
+
+  ////////
+  /// trade indicated quantity should have hit zero for sell
+  ////////
+  if (qty != 0) {
+    std::string s = "Invalid trade (X) transaction; quantiy not zero ";
+    s += "for sell side. Product " + std::to_string(op->prod) + " ";
+    s += "price " + std::to_string(op->price) + " quantity ";
+    s += std::to_string(op->quantity);
+    err.append(-1, s);
+    rollback(sp, sell_rollback);
+    rollback(bp, buy_rollback);
+    return;
   }
 
   ////////
@@ -387,11 +434,10 @@ handle_trade(support::error_code& err,
   ////////
   if (i == trade_counts_.end()) {
     i = trade_counts_.insert(
-      std::pair(op->prod,
-                trade_count{op->quantity, op->price})).first;
+      std::pair(op->prod, trade_count{op->quantity, op->price})).first;
   }
   ////////
-  /// existing entry - check for change in price
+  /// existing entry - price changed
   ////////
   else if (i->second.price != op->price) {
     i->second.count = op->quantity;
@@ -478,20 +524,21 @@ T& operator<<(T& out, const order_tracker::order_table& in) {
     /// reset count when product changes
     ////////
     if (last_prod != op->prod) {
+      last_prod = op->prod;
       traced = 0;
     }
     ////////
     /// noop if traced count hits 5??
     ////////
-    if (traced == 5) {
-    }
+    // if (traced == 5) {
+    // }
     ////////
     /// trace the order
     ////////
-    else {
+    // else {
       out << *op << std::endl;
       ++traced;
-    }
+    // }
   }
   return out;
 }

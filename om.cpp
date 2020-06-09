@@ -543,15 +543,15 @@ T& operator<<(T& out, const order_tracker::order_table& in) {
     ////////
     /// noop if traced count hits 5??
     ////////
-    // if (traced == 5) {
-    // }
+    if (traced == 5) {
+    }
     ////////
     /// trace the order
     ////////
-    // else {
+    else {
       out << *op << std::endl;
       ++traced;
-    // }
+    }
   }
   return out;
 }

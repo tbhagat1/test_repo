@@ -2,6 +2,7 @@
 #define __EXP_ORDER_TRACKER_HPP__
 
 #include <memory>
+#include <set>
 #include <boost/tokenizer.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
@@ -65,6 +66,9 @@ private:
     int       quantity;  /// order quanity
     int       price;     /// order price
 
+    ////////
+    /// shared ptr to order
+    ////////
     typedef std::shared_ptr<order> ptr;
   };
 
@@ -79,8 +83,7 @@ private:
   /// mti container keyed by:
   /// - [order id] -> must be unique but doesn't have to be ordered
   ///   used in new, cancel, modify
-  /// - [prod id] -> non-unique but good to have it ordered for
-  ///   tracing purposes
+  /// - [prod id] -> non-unique for tracing purposes
   /// - [side, product id, price] -> not unique but must be ordered
   ///   to assist in matching/reconciling; used in trade
   ////////
@@ -130,6 +133,11 @@ private:
   typedef std::map<int, trade_count>  trade_counts;
 
   ////////
+  /// needed for some kind of reconciliation at the end
+  ////////
+  typedef std::set<order::ptr>  order_set;
+
+  ////////
   /// handle new
   ////////
   void handle_new(support::error_code& err, order::ptr order);
@@ -159,6 +167,11 @@ private:
   /// trace trade counts
   ////////
   void trace_trade_counts(order::ptr op);
+
+  ////////
+  /// resolve
+  ////////
+  void resolve();
 
   ////////
   /// for tracing order
@@ -197,6 +210,11 @@ private:
   /// for some tracing trade reason
   /////////
   trade_counts  trade_counts_;
+
+  ////////
+  /// potential matches
+  ////////
+  order_set potentials_;
 };
 
 };

@@ -74,6 +74,7 @@ exec(support::error_code& err) {
       std::cout << orders_ << std::endl;
     }
   }
+  resolve();
   return err;
 }
 
@@ -114,7 +115,7 @@ parse_int(support::error_code& err,
     return false;
   }
   result = ::atoi(q.c_str());
-  if (result < 0) {
+  if (result <= 0) {
     std::string s = "Negative " + field + " for line <" + line + ">";
     err.append(-1, s);
     return false;
@@ -247,6 +248,11 @@ init(support::error_code& err,
 }
 
 ////////
+/// for upper bounds
+////////
+static int price_max = std::numeric_limits<int>::max();
+
+////////
 /// handle new
 ////////
 void
@@ -284,18 +290,6 @@ handle_cancel(support::error_code& err,
     s += "order id <" + std::to_string(op->id) + ">";
     err.append(-1, s);
   }
-  ////////
-  /// i have no idea if it is legal to cancel a trade w/
-  /// non-zero quantity
-  ////////
-/*
-  else if ((*i)->quantity != 0) {
-    std::string s = "Cancelling trade with non zero quantity; ";
-    s += "order id <" + std::to_string(op->id) + "> ";
-    s += "quantiy <" + std::to_string(op->quantity) + ">";
-    err.append(-1, s);
-  }
-*/
   ////////
   /// erase order from order table
   ////////
@@ -344,11 +338,6 @@ rollback(composite_ndx::iterator p,
 }
 
 ////////
-/// for upper bounds
-////////
-static int price_limit = std::numeric_limits<int>::max();
-
-////////
 /// handle trade
 ////////
 void
@@ -357,13 +346,13 @@ handle_trade(support::error_code& err,
              order::ptr op) {
 
   ////////
-  /// for the buy side locate the range; buyer must be willing to
-  /// pay at least the trade price
+  /// for the buy side locate the range; i guess buyer is willing to 
+  /// pay upto the trade price...
   ////////
   composite_ndx::iterator p, q;
   composite_ndx& cn = orders_.get<composite_tag>();
   p = cn.lower_bound(boost::make_tuple(op->prod, side_t::buy, op->price));
-  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::buy, price_limit));
+  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::buy, price_max));
   composite_ndx::iterator bp = p;
   int qty = op->quantity;
   std::vector<int> buy_rollback;
@@ -396,7 +385,7 @@ handle_trade(support::error_code& err,
   /// same for sell side; locate lower and upper bounds
   ////////
   p = cn.lower_bound(boost::make_tuple(op->prod, side_t::sell, op->price));
-  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::sell, price_limit));
+  q = cn.upper_bound(boost::make_tuple(op->prod, side_t::sell, price_max));
   composite_ndx::iterator sp = p;
   qty = op->quantity;
   std::vector<int> sell_rollback;
@@ -482,6 +471,43 @@ trace_trade_counts(order::ptr op) {
 }
 
 ////////
+/// resolve
+////////
+void
+order_tracker::
+resolve() {
+
+  const order_id_ndx& oin = orders_.get<order_id_tag>();
+  order_id_ndx::const_iterator p = oin.begin();
+  order_id_ndx::const_iterator q = oin.end();
+
+  for (; p != q; ++p) {
+
+    const order::ptr& op = *p;
+    side_t other = op->side == side_t::buy ? side_t::sell : side_t::buy;
+
+    const composite_ndx& cn = orders_.get<composite_tag>();
+    composite_ndx::const_iterator t, u;
+
+    int lprice = op->side == side_t::buy ? 0         : op->price;
+    int uprice = op->side == side_t::buy ? op->price : price_max;
+
+    t = cn.lower_bound(boost::make_tuple(op->prod, other, lprice));
+    u = cn.upper_bound(boost::make_tuple(op->prod, other, uprice));
+    int qty = op->quantity;
+
+    for (; t != u && qty > 0; ++t) {
+      int reduce_by = std::min(qty, (*t)->quantity);
+      const order::ptr& po = *t;
+      if (reduce_by > 0) {
+        potentials_.insert(*t);
+      }
+      qty -= reduce_by;
+    }
+  }
+}
+
+////////
 /// operator<< (order)
 ////////
 template <class T>
@@ -561,7 +587,21 @@ T& operator<<(T& out, const order_tracker::order_table& in) {
 ////////
 template <class T>
 T& operator<<(T& out, const order_tracker& in) {
-  return out << in.orders_;
+
+  out << in.orders_;
+
+  if (!in.potentials_.empty()) {
+
+    out << "Unresolved orders: " << std::endl;
+    order_tracker::order_set::const_iterator p = in.potentials_.begin();
+    order_tracker::order_set::const_iterator q = in.potentials_.end();
+
+    for (; p != q; ++p) {
+      const order_tracker::order::ptr& op = *p;
+      out << *op << std::endl;
+    }
+  }
+  return out;
 }
 
 }  /// namespace trade

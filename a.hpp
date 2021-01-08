@@ -7,7 +7,7 @@
 namespace util {
 
   ////////
-  /// very basic heap allocator
+  /// heap allocator
   ////////
   template <class T>
   class heap_allocator {
